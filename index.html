@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API App with Tabs</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .input-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        input, textarea {
+            width: 48%;
+            padding: 10px;
+            font-size: 16px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .tab.active {
+            background-color: #f1f1f1;
+            font-weight: bold;
+        }
+        .tab-content {
+            border: 1px solid #ddd;
+            padding: 20px;
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .key-value-row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+        .key-value-row input {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>API Request App with Tabs</h1>
+
+    <div class="input-group">
+        <input type="text" id="email" placeholder="Email" value="">
+        <input type="password" id="password" placeholder="Password" value="">
+    </div>
+
+    <div class="input-group">
+        <input type="text" id="url" placeholder="Destination URL" value="https://api-dev.hnv.vvnst.com/api/common/v1/common-messages/import">
+        <button onclick="saveToLocalStorage()">Save to LocalStorage</button>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" onclick="showTab(1)">Key-Value Importer (Tab 1)</div>
+        <div class="tab" onclick="showTab(2)">JSON Importer (Tab 2)</div>
+    </div>
+
+    <div class="tab-content active" id="tab-1">
+        <div id="keyValueContainer">
+            <div class="key-value-row">
+                <input type="text" placeholder="Key" class="key-input">
+                <input type="text" placeholder="Value" class="value-input">
+            </div>
+        </div>
+        <button onclick="submitKeyValueData()">Submit Key-Value Data</button>
+    </div>
+
+    <div class="tab-content" id="tab-2">
+        <textarea id="jsonInput" placeholder="Enter JSON object here..."></textarea>
+        <button onclick="submitData()">Submit JSON Data</button>
+    </div>
+
+    <pre id="output"></pre>
+
+    <script>
+        // Set default values and load from local storage if available
+        const defaultUrl = "https://api-dev.hnv.vvnst.com/api/common/v1/common-messages/import";
+
+        window.onload = function() {
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const urlInput = document.getElementById('url');
+
+            emailInput.value = localStorage.getItem('email') || "";
+            passwordInput.value = localStorage.getItem('password') || "";
+            urlInput.value = localStorage.getItem('url') || defaultUrl;
+
+            // Add event listener for key-value inputs
+            document.querySelector('#keyValueContainer').addEventListener('input', createKeyValueRow);
+        };
+
+        function saveToLocalStorage() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const url = document.getElementById('url').value;
+
+            localStorage.setItem('email', email);
+            localStorage.setItem('password', password);
+            localStorage.setItem('url', url);
+
+            alert('Data saved to LocalStorage!');
+        }
+
+        function showTab(tabNumber) {
+            document.querySelectorAll('.tab').forEach((tab, index) => {
+                tab.classList.toggle('active', index === tabNumber - 1);
+            });
+            document.querySelectorAll('.tab-content').forEach((content, index) => {
+                content.classList.toggle('active', index === tabNumber - 1);
+            });
+        }
+
+        function createKeyValueRow(event) {
+            const container = document.getElementById('keyValueContainer');
+            const rows = container.querySelectorAll('.key-value-row');
+            const lastRow = rows[rows.length - 1];
+            const key = lastRow.querySelector('.key-input').value;
+            const value = lastRow.querySelector('.value-input').value;
+
+            if (key && value) {
+                const newRow = document.createElement('div');
+                newRow.classList.add('key-value-row');
+                newRow.innerHTML = `
+                    <input type="text" placeholder="Key" class="key-input">
+                    <input type="text" placeholder="Value" class="value-input">
+                `;
+                container.appendChild(newRow);
+            }
+        }
+
+        async function submitKeyValueData() {
+            const keyValueRows = document.querySelectorAll('.key-value-row');
+            const jsonData = {};
+
+            keyValueRows.forEach(row => {
+                const key = row.querySelector('.key-input').value;
+                const value = row.querySelector('.value-input').value;
+
+                if (key && value) {
+                    jsonData[key] = value;
+                }
+            });
+
+            document.getElementById('jsonInput').value = JSON.stringify(jsonData, null, 2);
+            submitData();  // Convert to JSON and submit as if from Tab 2
+        }
+
+        async function submitData() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const url = document.getElementById('url').value;
+            const jsonInput = document.getElementById('jsonInput').value;
+            const output = document.getElementById('output');
+
+            // Save values to local storage
+            saveToLocalStorage();
+
+            // Validate JSON input
+            let inputData;
+            try {
+                inputData = JSON.parse(jsonInput);
+            } catch (error) {
+                output.innerHTML = 'Invalid JSON format!';
+                return;
+            }
+
+            // Log in to get Bearer token
+            const loginResponse = await fetch('https://api-dev.hnv.vvnst.com/api/auth/v1/open/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+
+            if (!loginResponse.ok) {
+                output.innerHTML = 'Login failed!';
+                return;
+            }
+
+            const loginData = await loginResponse.json();
+            const token = loginData.data.token;
+
+            // Process input data to match the required format
+            const processedData = [];
+            Object.keys(inputData).forEach((key) => {
+                const [vmsMessageGroupName, vmsMessageTypeName, signaturePurposeContent] = key.split('.');
+                const messageContent = inputData[key];
+
+                processedData.push(
+                    {
+                        messageId: key,
+                        messageLanguage: "kr",
+                        appCode: "WEB",
+                        messageContent,
+                        vmsMessageGroupName,
+                        vmsMessageTypeName,
+                        signaturePurposeContent
+                    },
+                    {
+                        messageId: key,
+                        messageLanguage: "en",
+                        appCode: "WEB",
+                        messageContent,
+                        vmsMessageGroupName,
+                        vmsMessageTypeName,
+                        signaturePurposeContent
+                    }
+                );
+            });
+
+            // Make the POST request with Bearer token
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(processedData)
+            });
+
+            if (response.ok) {
+                const responseData = await response.json();
+                output.innerHTML = JSON.stringify(responseData, null, 2);
+            } else {
+                output.innerHTML = 'Error posting data!';
+            }
+        }
+    </script>
+</body>
+</html>
